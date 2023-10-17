@@ -37,6 +37,113 @@ interface GetCurrentDocContextParams {
     context?: vscode.InlineCompletionContext
 }
 
+interface SemanticContext {
+    context: string[]
+    similarityScore: number
+}
+
+// function findSemanticContext(document: vscode.TextDocument, position: vscode.Position): SemanticContext | null {
+
+// const currentLine = document.lineAt(position.line).text;
+
+// let mostSimilarContext: SemanticContext | null = null;
+// let highestScore = 0;
+
+// // Iterate through each line in the document
+// for (let i = 0; i < document.lineCount; i++) {
+//     const line = document.lineAt(i).text;
+
+//     // Calculate semantic similarity between current line and this line
+//     const similarityScore = semanticSimilarity(currentLine, line);
+
+//     // Check if this line is the most similar so far
+//     if (similarityScore > highestScore) {
+//     mostSimilarContext = {
+//         context: line,
+//         similarityScore
+//     };
+//     highestScore = similarityScore;
+//     }
+// }
+
+// return mostSimilarContext;
+// }
+
+function getSemanticContextWithinDocument(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+    k: number
+): SemanticContext | null {
+    const currentLine = document.lineAt(position.line).text
+
+    let mostSimilarContext: SemanticContext | null = null
+    let highestScore = 0
+
+    // Ensure we don't go out of bounds when looking at blocks of k lines
+    for (let i = 0; i <= document.lineCount - k; i++) {
+        const blockOfLines = Array.from({ length: k }, (_, idx) => document.lineAt(i + idx).text)
+
+        // Calculate semantic similarity between current line and this block of lines
+        const aggregateSimilarityScore = blockOfLines.reduce(
+            (acc, line) => acc + semanticSimilarity(currentLine, line),
+            0
+        )
+
+        // Check if this block of lines is the most similar so far
+        if (aggregateSimilarityScore > highestScore) {
+            mostSimilarContext = {
+                context: blockOfLines,
+                similarityScore: aggregateSimilarityScore,
+            }
+            highestScore = aggregateSimilarityScore
+        }
+    }
+
+    return mostSimilarContext
+}
+
+function semanticSimilarity(text1: string, text2: string): number {
+    // Placeholder implementation using Levenshtein distance; need to replace this by embedding based similarity
+    const distance = levenshteinDistance(text1, text2)
+    return 1 - distance / Math.max(text1.length, text2.length)
+}
+
+function levenshteinDistance(text1: string, text2: string): number {
+    if (text1.length === 0) {
+        return text2.length
+    }
+    if (text2.length === 0) {
+        return text1.length
+    }
+
+    const matrix = []
+
+    // initialize matrix of all 0's
+    for (let i = 0; i <= text2.length; i++) {
+        matrix[i] = [...new Array(text1.length + 1)].map(x => 0)
+    }
+
+    // populate matrix
+    for (let i = 0; i <= text2.length; i++) {
+        for (let j = 0; j <= text1.length; j++) {
+            if (i === 0) {
+                matrix[i][j] = j
+            } else if (j === 0) {
+                matrix[i][j] = i
+            } else {
+                const indicator = text1[j - 1] === text2[i - 1] ? 0 : 1
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j] + 1, // deletion
+                    matrix[i][j - 1] + 1, // insertion
+                    matrix[i - 1][j - 1] + indicator // substitution
+                )
+            }
+        }
+    }
+
+    return matrix[text2.length][text1.length]
+}
+
 /**
  * Get the current document context based on the cursor position in the current document.
  *
@@ -97,6 +204,9 @@ export function getCurrentDocContext(params: GetCurrentDocContextParams): Docume
         prefix = prefixLines.join('\n')
     }
 
+    const semanticContextWithinDoc = getSemanticContextWithinDocument(document, position, 5)
+    const semanticContext = semanticContextWithinDoc?.context.join('\n')
+
     let totalSuffix = 0
     let endLine = 0
     for (let i = 0; i < suffixLines.length; i++) {
@@ -120,6 +230,7 @@ export function getCurrentDocContext(params: GetCurrentDocContextParams): Docume
         ),
         currentLinePrefix,
         currentLineSuffix,
+        semanticContext,
         prevNonEmptyLine,
         nextNonEmptyLine,
         injectedPrefix,
