@@ -38,45 +38,21 @@ interface GetCurrentDocContextParams {
 }
 
 interface SemanticContext {
-    context: string[]
+    semanticContext: string[]
     similarityScore: number
 }
-
-// function findSemanticContext(document: vscode.TextDocument, position: vscode.Position): SemanticContext | null {
-
-// const currentLine = document.lineAt(position.line).text;
-
-// let mostSimilarContext: SemanticContext | null = null;
-// let highestScore = 0;
-
-// // Iterate through each line in the document
-// for (let i = 0; i < document.lineCount; i++) {
-//     const line = document.lineAt(i).text;
-
-//     // Calculate semantic similarity between current line and this line
-//     const similarityScore = semanticSimilarity(currentLine, line);
-
-//     // Check if this line is the most similar so far
-//     if (similarityScore > highestScore) {
-//     mostSimilarContext = {
-//         context: line,
-//         similarityScore
-//     };
-//     highestScore = similarityScore;
-//     }
-// }
-
-// return mostSimilarContext;
-// }
 
 function getSemanticContextWithinDocument(
     document: vscode.TextDocument,
     position: vscode.Position,
     k: number
-): SemanticContext | null {
+): SemanticContext {
     const currentLine = document.lineAt(position.line).text
 
-    let mostSimilarContext: SemanticContext | null = null
+    let mostSimilarContext: SemanticContext = {
+        semanticContext: [],
+        similarityScore: 0,
+    }
     let highestScore = 0
 
     // Ensure we don't go out of bounds when looking at blocks of k lines
@@ -92,7 +68,7 @@ function getSemanticContextWithinDocument(
         // Check if this block of lines is the most similar so far
         if (aggregateSimilarityScore > highestScore) {
             mostSimilarContext = {
-                context: blockOfLines,
+                semanticContext: blockOfLines,
                 similarityScore: aggregateSimilarityScore,
             }
             highestScore = aggregateSimilarityScore
@@ -205,7 +181,7 @@ export function getCurrentDocContext(params: GetCurrentDocContextParams): Docume
     }
 
     const semanticContextWithinDoc = getSemanticContextWithinDocument(document, position, 5)
-    const semanticContext = semanticContextWithinDoc?.context.join('\n')
+    const semanticContext: string = semanticContextWithinDoc.semanticContext.join('\n')
 
     let totalSuffix = 0
     let endLine = 0

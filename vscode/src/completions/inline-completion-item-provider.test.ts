@@ -149,6 +149,7 @@ describe('InlineCompletionItemProvider', () => {
               "nextNonEmptyLine": "console.log(1)",
               "prefix": "const foo = ",
               "prevNonEmptyLine": "",
+              "semanticContext": "",
               "suffix": "
           console.log(1)
           console.log(2)",
